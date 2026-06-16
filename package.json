@@ -1,0 +1,30 @@
+{
+  "name": "pi-azure-openai-error-capture",
+  "version": "0.1.0",
+  "description": "Pi extension that captures Azure OpenAI provider errors and stores them as JSONL for quick diagnosis.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "azure-openai",
+    "observability"
+  ],
+  "license": "MIT",
+  "author": "jezzam",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jezzam/pi-azure-openai-error-capture.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jezzam/pi-azure-openai-error-capture/issues"
+  },
+  "homepage": "https://github.com/jezzam/pi-azure-openai-error-capture#readme",
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
