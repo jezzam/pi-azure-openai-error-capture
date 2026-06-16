@@ -12,6 +12,12 @@ Pi extension package that captures Azure OpenAI provider errors (`HTTP >= 400`) 
 - Appends each captured error to a JSONL file.
 - Adds `/azure-openai-errors` helper command for quick inspection.
 
+## Security note
+
+`v0.1.2+` intentionally keeps runtime dependencies at zero (Node built-ins only).
+
+This avoids pulling an additional npm dependency tree during `pi install`, which helps reduce transitive vulnerability alerts from package audits. If a future release adds runtime dependencies, this section should be updated accordingly.
+
 ## Install
 
 ### From GitHub (recommended)
