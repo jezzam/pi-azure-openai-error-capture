@@ -1,9 +1,48 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 type JsonObject = Record<string, unknown>;
+
+interface MinimalUi {
+  notify(message: string, level: "info" | "warning" | "error"): void;
+  setEditorText(text: string): void;
+}
+
+interface MinimalSessionEntry {
+  type: string;
+  customType?: string;
+  data?: unknown;
+}
+
+interface MinimalSessionManager {
+  getBranch(): MinimalSessionEntry[];
+}
+
+interface MinimalExtensionContext {
+  cwd: string;
+  hasUI: boolean;
+  ui: MinimalUi;
+  sessionManager: MinimalSessionManager;
+}
+
+interface MinimalCommandOption {
+  value: string;
+  label: string;
+}
+
+interface MinimalExtensionApi {
+  on(eventName: string, handler: (...args: any[]) => unknown): void;
+  appendEntry<T>(customType: string, data: T): void;
+  registerCommand(
+    name: string,
+    options: {
+      description?: string;
+      getArgumentCompletions?: (prefix: string) => MinimalCommandOption[];
+      handler: (args: string, ctx: MinimalExtensionContext) => Promise<void> | void;
+    },
+  ): void;
+}
 
 interface PendingRequest {
   timestamp: string;
@@ -191,7 +230,7 @@ function parseCommandArgs(args: string): { action: string; value?: string } {
   };
 }
 
-function summarizeFromBranch(ctx: ExtensionContext): { count: number; latest?: CapturedProviderError } {
+function summarizeFromBranch(ctx: MinimalExtensionContext): { count: number; latest?: CapturedProviderError } {
   let count = 0;
   let latest: CapturedProviderError | undefined;
 
@@ -204,7 +243,7 @@ function summarizeFromBranch(ctx: ExtensionContext): { count: number; latest?: C
   return { count, latest };
 }
 
-export default function azureOpenAIErrorCaptureExtension(pi: ExtensionAPI) {
+export default function azureOpenAIErrorCaptureExtension(pi: MinimalExtensionApi) {
   const pending: PendingRequest[] = [];
   const captureAllProviders = envBool("PI_AZURE_OPENAI_ERROR_CAPTURE_ALL", false);
   const notifyOnCapture = envBool("PI_AZURE_OPENAI_ERROR_CAPTURE_NOTIFY", true);
