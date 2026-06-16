@@ -10,11 +10,23 @@ interface PendingRequest {
   request: JsonObject;
 }
 
+type TransportErrorType =
+  | "rate_limited"
+  | "request_timeout"
+  | "bad_gateway"
+  | "service_unavailable"
+  | "gateway_timeout"
+  | "internal_server_error"
+  | "upstream_server_error"
+  | "client_error";
+
 interface CapturedProviderError {
   timestamp: string;
   status: number;
   requestId?: string;
   retryAfter?: string;
+  transportErrorType?: TransportErrorType;
+  retryable?: boolean;
   azure: boolean;
   request: JsonObject;
   responseHeaders: JsonObject;
@@ -108,6 +120,17 @@ function extractRequestId(headers: Record<string, string>): string | undefined {
     pickHeader(headers, "x-request-id");
 }
 
+function classifyTransportError(status: number): { type: TransportErrorType; retryable: boolean } {
+  if (status === 429) return { type: "rate_limited", retryable: true };
+  if (status === 408) return { type: "request_timeout", retryable: true };
+  if (status === 502) return { type: "bad_gateway", retryable: true };
+  if (status === 503) return { type: "service_unavailable", retryable: true };
+  if (status === 504) return { type: "gateway_timeout", retryable: true };
+  if (status === 500) return { type: "internal_server_error", retryable: true };
+  if (status >= 500) return { type: "upstream_server_error", retryable: true };
+  return { type: "client_error", retryable: false };
+}
+
 function writeJsonLine(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, `${JSON.stringify(value)}\n`, "utf8");
@@ -149,7 +172,10 @@ function formatTail(records: CapturedProviderError[]): string {
 
   return records
     .map((record, index) => {
-      const headerLine = `#${index + 1} ${record.timestamp} status=${record.status} azure=${record.azure}`;
+      const inferred = classifyTransportError(record.status);
+      const transportType = record.transportErrorType ?? inferred.type;
+      const retryable = record.retryable ?? inferred.retryable;
+      const headerLine = `#${index + 1} ${record.timestamp} status=${record.status} type=${transportType} retryable=${retryable} azure=${record.azure}`;
       const requestId = record.requestId ? `request_id=${record.requestId}` : "request_id=-";
       const retryAfter = record.retryAfter ? `retry_after=${record.retryAfter}` : "retry_after=-";
       return `${headerLine}\n${requestId} ${retryAfter}\n${JSON.stringify(record.request)}`;
@@ -202,11 +228,14 @@ export default function azureOpenAIErrorCaptureExtension(pi: ExtensionAPI) {
     }
 
     const logPath = resolveLogPath(ctx.cwd);
+    const transport = classifyTransportError(event.status);
     const record: CapturedProviderError = {
       timestamp: request?.timestamp ?? new Date().toISOString(),
       status: event.status,
       requestId: extractRequestId(headers),
       retryAfter: pickHeader(headers, "retry-after"),
+      transportErrorType: transport.type,
+      retryable: transport.retryable,
       azure,
       request: request?.request ?? {},
       responseHeaders: headers,
@@ -217,7 +246,10 @@ export default function azureOpenAIErrorCaptureExtension(pi: ExtensionAPI) {
 
     if (notifyOnCapture && ctx.hasUI) {
       const requestId = record.requestId ? ` request_id=${record.requestId}` : "";
-      ctx.ui.notify(`Captured provider error: status=${record.status}${requestId}`, "warning");
+      ctx.ui.notify(
+        `Captured provider error: status=${record.status} type=${record.transportErrorType}${requestId}`,
+        "warning",
+      );
     }
   });
 
@@ -255,9 +287,15 @@ export default function azureOpenAIErrorCaptureExtension(pi: ExtensionAPI) {
       }
 
       const branchSummary = summarizeFromBranch(ctx);
-      const latestText = branchSummary.latest
-        ? `latest status=${branchSummary.latest.status} at ${branchSummary.latest.timestamp}`
-        : "no captured errors yet";
+      let latestText = "no captured errors yet";
+
+      if (branchSummary.latest) {
+        const latest = branchSummary.latest;
+        const inferred = classifyTransportError(latest.status);
+        const transportType = latest.transportErrorType ?? inferred.type;
+        const retryable = latest.retryable ?? inferred.retryable;
+        latestText = `latest status=${latest.status} type=${transportType} retryable=${retryable} at ${latest.timestamp}`;
+      }
 
       ctx.ui.notify(
         `Captured errors in current session branch: ${branchSummary.count} (${latestText})`,

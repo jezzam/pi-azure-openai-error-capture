@@ -6,6 +6,7 @@ Pi extension package that captures Azure OpenAI provider errors (`HTTP >= 400`) 
 
 - Listens to `before_provider_request` and `after_provider_response` events.
 - Captures provider failures with request metadata (model, token settings, counts).
+- Adds transport-layer classification (`transportErrorType`) and retry guidance (`retryable`).
 - Detects Azure responses using Azure-style headers (`x-ms-*`, `apim-request-id`, `x-azure-*`).
 - Appends each captured error to a JSONL file.
 - Adds `/azure-openai-errors` helper command for quick inspection.
@@ -15,19 +16,19 @@ Pi extension package that captures Azure OpenAI provider errors (`HTTP >= 400`) 
 ### From GitHub (recommended)
 
 ```bash
-pi install git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.0
+pi install git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.1
 ```
 
 ### Temporary run (without installing)
 
 ```bash
-pi -e git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.0
+pi -e git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.1
 ```
 
 ### Local project scope
 
 ```bash
-pi install -l git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.0
+pi install -l git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.1
 ```
 
 ## Command
@@ -62,6 +63,8 @@ pi install -l git:github.com/jezzam/pi-azure-openai-error-capture@v0.1.0
   "status": 429,
   "requestId": "12345678-aaaa-bbbb-cccc-1234567890ab",
   "retryAfter": "30",
+  "transportErrorType": "rate_limited",
+  "retryable": true,
   "azure": true,
   "request": {
     "model": "gpt-4.1",

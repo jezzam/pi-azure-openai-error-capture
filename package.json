@@ -1,6 +1,6 @@
 {
   "name": "pi-azure-openai-error-capture",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension that captures Azure OpenAI provider errors and stores them as JSONL for quick diagnosis.",
   "type": "module",
   "keywords": [
